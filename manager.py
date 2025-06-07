@@ -1,7 +1,11 @@
 #%% Show song lyrics
 
 import api_key
+import stopwords
+import re
+from collections import Counter
 from lyricsgenius import Genius
+import pandas as pd
 
 def main():
     
@@ -36,6 +40,27 @@ def main():
         
         print(f"File {file_name} created!")
     
+    def song_words_histogram():
+        artist = "Damiano David"
+        title = "Next Summer"
+        
+        genius.remove_section_headers = True
+        song = genius.search_song(title, artist)
+        
+        lyrics = '\n'.join(song.lyrics.split('\n')[1:])
+        words = re.findall(r"\b\w+\b", lyrics.lower())
+
+
+        number_of_desired_words = 10
+
+        meaningful_words = [word for word in words if word not in stopwords.english]  
+        meaningful_words_counter = Counter(meaningful_words)
+        most_frequent_meaningful_words = meaningful_words_counter.most_common(number_of_desired_words)
+        
+        word_frequency_df = pd.DataFrame(most_frequent_meaningful_words, columns = ['word', 'word_count'])
+        word_frequency_df.sort_values(by='word_count').plot(x='word',kind='barh', title=f"{artist} - {title}\n Most Frequent Words")
+        print('Plot created!')
+    
     
     def exit_program():
         print('-'*30)
@@ -47,15 +72,17 @@ def main():
     actions = {
         "1": show_song_lyrics,
         "2": save_song_lyrics,
+        "3": song_words_histogram,
         "6": exit_program
     }
     
     
     while True:
         print("\n=== Lyrics Flashcard App ===")
-        print("1. Show song lyrics")
-        print("2. Save song lyrics to a file")
-        print("3. Create song flashcards")
+        print("Song")
+        print(" 1. Show song lyrics")
+        print(" 2. Save song lyrics to a file")
+        print(" 3. Show song words histogram")
         print("6. Exit\n")
     
         choice = input("Choose an option: ").strip()
