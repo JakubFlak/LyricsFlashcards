@@ -6,10 +6,10 @@ import re
 from collections import Counter
 from lyricsgenius import Genius
 import pandas as pd
-import numpy as np
-from PIL import Image
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
+from deep_translator import GoogleTranslator
+import json
 
 def main():
     
@@ -93,6 +93,23 @@ def main():
         print('Plot created!')
     
     
+    def song_words_flashcards():
+        artist = "Damiano David"
+        title = "Next Summer"
+        
+        genius.remove_section_headers = True
+        song = genius.search_song(title, artist)
+        
+        lyrics = '\n'.join(song.lyrics.split('\n')[1:])
+        
+        words = re.findall(r"\b\w+\b", lyrics.lower())
+
+        meaningful_words = [word for word in words if word not in stopwords.english]  
+        flashcard_words = set(meaningful_words)
+        flashcards = {w : GoogleTranslator(source='en', target='polish').translate(text=w).lower() for w in flashcard_words}
+        with open('flashcards.json', 'w', encoding='utf-8') as f:
+            json.dump(flashcards, f, ensure_ascii=False, indent=2)
+    
     def exit_program():
         print('-'*30)
         print("Goodbye!")
@@ -105,6 +122,7 @@ def main():
         "2": save_song_lyrics,
         "3": song_words_histogram,
         "4": song_words_cloud,
+        "5": song_words_flashcards,
         "6": exit_program
     }
     
@@ -116,6 +134,7 @@ def main():
         print(" 2. Save song lyrics to a file")
         print(" 3. Show song words histogram")
         print(" 4. Show song words cloud")
+        print(" 5. Generate song flashcards")
         print("6. Exit\n")
     
         choice = input("Choose an option: ").strip()
@@ -134,4 +153,8 @@ def main():
 if __name__ == "__main__":
     main()
 
-#word cloud z piosenki
+#rhyme finder
+#rhyme map
+#langdetect
+#basic gui
+#flashcard game
