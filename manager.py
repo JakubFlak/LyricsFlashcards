@@ -3,13 +3,8 @@
 import api_key
 import stopwords
 import re
-from collections import Counter
 from lyricsgenius import Genius
-import pandas as pd
-from wordcloud import WordCloud
-import matplotlib.pyplot as plt
 from deep_translator import GoogleTranslator
-import json
 import requests
 
 def main():
@@ -21,27 +16,40 @@ def main():
     
     def show_song_lyrics():
         
-        artist = "Ed Sheeran"
-        title = "Perfect"
+        artist = "Damiano David"
+        title = "Born with a broken heart"
         
         song = genius.search_song(title, artist)
         
-        lyrics = '\n'.join(song.lyrics.split('\n')[1:])
-        
-        print(f"\n{lyrics}")
+        pattern = r"\[.*?\]"
+        match = re.search(pattern, song.lyrics)
+    
+        if match:
+            start_index = match.start()
+            cleaned_lyrics = song.lyrics[start_index:]
+        else:
+            cleaned_lyrics = '\n'.join(song.lyrics.split('\n')[1:])        
+        print(f"\n{cleaned_lyrics}")
         
     def save_song_lyrics():
-        artist = "Ed Sheeran"
-        title = "Perfect"
+        artist = "Damiano David"
+        title = "Born with a broken heart"
         
         song = genius.search_song(title, artist)
         
-        lyrics = '\n'.join(song.lyrics.split('\n')[1:])
+        pattern = r"\[.*?\]"  # matches [Verse 1], [Intro], etc.
+        match = re.search(pattern, song.lyrics)
+    
+        if match:
+            start_index = match.start()
+            cleaned_lyrics = song.lyrics[start_index:]
+        else:
+            cleaned_lyrics = '\n'.join(song.lyrics.split('\n')[1:])
         
-        file_name = f"{artist.replace(" ", "_")}-{title.replace(" ", "_")}.txt"
+        file_name = f"{artist.replace(" ", "_")}-{title.replace(" ", "_")}.txt".lower()
         
         with open(file_name,'w') as f:
-            f.write(lyrics)
+            f.write(cleaned_lyrics)
         
         print(f"File {file_name} created!")  
     
@@ -49,18 +57,27 @@ def main():
         artist = "Ed Sheeran"
         title = "Perfect"
         
-        genius.remove_section_headers = True
+     #   genius.remove_section_headers = False
         song = genius.search_song(title, artist)
         
-        lyrics = '\n'.join(song.lyrics.split('\n')[1:])
+        pattern = r"\[.*?\]"  # matches [Verse 1], [Intro], etc.
+        match = re.search(pattern, song.lyrics)
+    
+        if match:
+            start_index = match.start()
+            cleaned_lyrics = song.lyrics[start_index:]
+        else:
+            cleaned_lyrics = '\n'.join(song.lyrics.split('\n')[1:])
         
-        words = re.findall(r"\b\w+\b", lyrics.lower())
+        
+        removed_sections = re.sub(r"\[.*?\]", "", cleaned_lyrics)
+        words = re.findall(r"\b\w+\b", removed_sections.strip().lower())
 
-        meaningful_words = [word.lower() for word in words if word not in stopwords.english]  
+        meaningful_words = [word for word in words if word not in stopwords.english]  
         words_list = list(set(meaningful_words))
-        translated_list = GoogleTranslator(source='en', target='pl').translate_batch(words_list)
+        translated_list = [word.lower() for word in GoogleTranslator(source='en', target='pl').translate_batch(words_list)]
 
-        deck_name = "Song Flashcards"
+        deck_name = f"{artist} - {title}"
         requests.post("http://localhost:8765", json={
             "action": "createDeck",
             "version": 6,
@@ -147,12 +164,7 @@ if __name__ == "__main__":
 #dorobic dla albumow
 #dorobic dla artystow
 
-
-#rhyme finder
-#rhyme map
 #langdetect
 #basic gui
 #Flashcard practice GUI using tkinter or streamlit
 #Track known words and skip translating them again
-
-#Language detection to automatically switch translator language
