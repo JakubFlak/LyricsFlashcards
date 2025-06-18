@@ -10,6 +10,7 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from deep_translator import GoogleTranslator
 import json
+import requests
 
 def main():
     
@@ -20,8 +21,8 @@ def main():
     
     def show_song_lyrics():
         
-        artist = "Damiano David"
-        title = "Next Summer"
+        artist = "Ed Sheeran"
+        title = "Perfect"
         
         song = genius.search_song(title, artist)
         
@@ -30,8 +31,8 @@ def main():
         print(f"\n{lyrics}")
         
     def save_song_lyrics():
-        artist = "Damiano David"
-        title = "Next Summer"
+        artist = "Ed Sheeran"
+        title = "Perfect"
         
         song = genius.search_song(title, artist)
         
@@ -42,60 +43,11 @@ def main():
         with open(file_name,'w') as f:
             f.write(lyrics)
         
-        print(f"File {file_name} created!")
-    
-    def song_words_histogram():
-        artist = "Damiano David"
-        title = "Next Summer"
-        
-        genius.remove_section_headers = True
-        song = genius.search_song(title, artist)
-        
-        lyrics = '\n'.join(song.lyrics.split('\n')[1:])
-        words = re.findall(r"\b\w+\b", lyrics.lower())
-
-
-        number_of_desired_words = 20
-
-        meaningful_words = [word for word in words if word not in stopwords.english]  
-        meaningful_words_counter = Counter(meaningful_words)
-        most_frequent_meaningful_words = meaningful_words_counter.most_common(number_of_desired_words)
-        
-        word_frequency_df = pd.DataFrame(most_frequent_meaningful_words, columns = ['word', 'word_count'])
-        word_frequency_df.sort_values(by='word_count').plot(x='word',kind='barh', title=f"{artist} - {title}\n Most Frequent Words")
-        print('Plot created!')
-    
-    
-    def song_words_cloud():
-        artist = "Damiano David"
-        title = "Next Summer"
-        
-        genius.remove_section_headers = True
-        song = genius.search_song(title, artist)
-        
-        lyrics = '\n'.join(song.lyrics.split('\n')[1:])
-        
-        words = re.findall(r"\b\w+\b", lyrics.lower())
-
-
-        number_of_desired_words = 20
-
-        meaningful_words = [word for word in words if word not in stopwords.english]  
-        meaningful_words_counter = Counter(meaningful_words)
-        most_frequent_meaningful_words = meaningful_words_counter.most_common(number_of_desired_words)
-        
-        
-        wc = WordCloud(background_color='black', colormap='viridis', 
-                       width = 800, height = 500).generate_from_frequencies(meaningful_words_counter)
-        plt.axis("off")
-        plt.imshow(wc)
-
-        print('Plot created!')
-    
+        print(f"File {file_name} created!")  
     
     def song_words_flashcards():
-        artist = "Damiano David"
-        title = "Next Summer"
+        artist = "Ed Sheeran"
+        title = "Perfect"
         
         genius.remove_section_headers = True
         song = genius.search_song(title, artist)
@@ -104,11 +56,50 @@ def main():
         
         words = re.findall(r"\b\w+\b", lyrics.lower())
 
-        meaningful_words = [word for word in words if word not in stopwords.english]  
-        flashcard_words = set(meaningful_words)
-        flashcards = {w : GoogleTranslator(source='en', target='polish').translate(text=w).lower() for w in flashcard_words}
-        with open('flashcards.json', 'w', encoding='utf-8') as f:
-            json.dump(flashcards, f, ensure_ascii=False, indent=2)
+        meaningful_words = [word.lower() for word in words if word not in stopwords.english]  
+        words_list = list(set(meaningful_words))
+        translated_list = GoogleTranslator(source='en', target='pl').translate_batch(words_list)
+
+        deck_name = "Song Flashcards"
+        requests.post("http://localhost:8765", json={
+            "action": "createDeck",
+            "version": 6,
+            "params": {"deck": deck_name}
+        })
+
+        notes = []
+        for word, translation in zip(words_list, translated_list):
+            if word != translation:
+                notes.append({
+                            "deckName": deck_name,
+                            "modelName": "Basic",
+                            "fields": {
+                                "Front": word,
+                                "Back": translation
+                            },
+                            "options": {
+                                "allowDuplicate": False
+                            },
+                        }
+                    )
+
+        response = requests.post("http://localhost:8765", json={
+        "action": "addNotes",
+        "version": 6,
+        "params": {
+            "notes": notes
+        }
+    })
+
+        result = response.json().get("result", [])
+        for i, res in enumerate(result):
+            word = notes[i]["fields"]["Front"]
+            translation = notes[i]["fields"]["Back"]
+            if res is None:
+                print(f"⚠️ Failed to add: {word}")
+            else:
+                print(f"✅ Added: {word} → {translation}")
+
     
     def exit_program():
         print('-'*30)
@@ -120,9 +111,7 @@ def main():
     actions = {
         "1": show_song_lyrics,
         "2": save_song_lyrics,
-        "3": song_words_histogram,
-        "4": song_words_cloud,
-        "5": song_words_flashcards,
+        "3": song_words_flashcards,
         "6": exit_program
     }
     
@@ -132,9 +121,7 @@ def main():
         print("Song")
         print(" 1. Show song lyrics")
         print(" 2. Save song lyrics to a file")
-        print(" 3. Show song words histogram")
-        print(" 4. Show song words cloud")
-        print(" 5. Generate song flashcards")
+        print(" 3. Generate song flashcards")
         print("6. Exit\n")
     
         choice = input("Choose an option: ").strip()
@@ -153,8 +140,19 @@ def main():
 if __name__ == "__main__":
     main()
 
+
+
+#ogarnac zeby dobrze jednak wczytywalo fiszki do anki
+#pounifikowac funkcje
+#dorobic dla albumow
+#dorobic dla artystow
+
+
 #rhyme finder
 #rhyme map
 #langdetect
 #basic gui
-#flashcard game
+#Flashcard practice GUI using tkinter or streamlit
+#Track known words and skip translating them again
+
+#Language detection to automatically switch translator language

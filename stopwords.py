@@ -10,4 +10,4 @@ english = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', '
              'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more',
              'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so',
              'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now', 've', 'll', 'amp',
-             'didn', 'm', 're', 'em',' us']
+             'didn', 'm', 're', 'em','us', 'oh', 'mm']
