@@ -11,67 +11,46 @@ def main():
     
     token = api_key.your_client_access_token
     genius = Genius(token)
- #   genius.verbose = False # Turn off status messages
- #   genius.remove_section_headers = True # Remove section headers (e.g. [Chorus]) from lyrics when searching
     
-    def show_song_lyrics():
-        
-        artist = "Damiano David"
-        title = "Born with a broken heart"
-        
+    artist = "Ed Sheeran"
+    title = "Perfect"
+    
+    ## HELPER FUNCTIONS
+    
+    def fetch_song_lyrics(artist, title):
         song = genius.search_song(title, artist)
-        
-        pattern = r"\[.*?\]"
-        match = re.search(pattern, song.lyrics)
+        return song.lyrics
     
-        if match:
-            start_index = match.start()
-            cleaned_lyrics = song.lyrics[start_index:]
-        else:
-            cleaned_lyrics = '\n'.join(song.lyrics.split('\n')[1:])        
-        print(f"\n{cleaned_lyrics}")
+    def extract_sectioned_lyrics(lyrics):
+        match = re.search(r"\[.*?\]", lyrics)
+        lyrics = lyrics[match.start():] if match else lyrics
+        return lyrics.strip()
+    
+    def extract_clean_lyrics(lyrics):
+        lyrics = re.sub(r"\[.*?\]", "", lyrics)
+        return lyrics  
+   
+   ## CORE FUNCTIONS ## 
+   
+    def show_song_lyrics():     
+        raw_lyrics = fetch_song_lyrics(artist, title)
+        sectioned_lyrics = extract_sectioned_lyrics(raw_lyrics)
+        print(f"\n{sectioned_lyrics}")
+        return sectioned_lyrics
         
     def save_song_lyrics():
-        artist = "Damiano David"
-        title = "Born with a broken heart"
-        
-        song = genius.search_song(title, artist)
-        
-        pattern = r"\[.*?\]"  # matches [Verse 1], [Intro], etc.
-        match = re.search(pattern, song.lyrics)
-    
-        if match:
-            start_index = match.start()
-            cleaned_lyrics = song.lyrics[start_index:]
-        else:
-            cleaned_lyrics = '\n'.join(song.lyrics.split('\n')[1:])
-        
-        file_name = f"{artist.replace(" ", "_")}-{title.replace(" ", "_")}.txt".lower()
-        
+        raw_lyrics = fetch_song_lyrics(artist, title)
+        sectioned_lyrics = extract_sectioned_lyrics(raw_lyrics)
+        file_name = f"{artist.replace(" ", "_")}-{title.replace(" ", "_")}.txt".lower()      
         with open(file_name,'w') as f:
-            f.write(cleaned_lyrics)
-        
+            f.write(sectioned_lyrics)        
         print(f"File {file_name} created!")  
     
     def song_words_flashcards():
-        artist = "Ed Sheeran"
-        title = "Perfect"
-        
-     #   genius.remove_section_headers = False
-        song = genius.search_song(title, artist)
-        
-        pattern = r"\[.*?\]"  # matches [Verse 1], [Intro], etc.
-        match = re.search(pattern, song.lyrics)
-    
-        if match:
-            start_index = match.start()
-            cleaned_lyrics = song.lyrics[start_index:]
-        else:
-            cleaned_lyrics = '\n'.join(song.lyrics.split('\n')[1:])
-        
-        
-        removed_sections = re.sub(r"\[.*?\]", "", cleaned_lyrics)
-        words = re.findall(r"\b\w+\b", removed_sections.strip().lower())
+        raw_lyrics = fetch_song_lyrics(artist, title)
+        sectioned_lyrics = extract_sectioned_lyrics(raw_lyrics)
+        clean_lyrics = extract_clean_lyrics(sectioned_lyrics)
+        words = re.findall(r"\b\w+\b", clean_lyrics.strip().lower())
 
         meaningful_words = [word for word in words if word not in stopwords.english]  
         words_list = list(set(meaningful_words))
@@ -113,9 +92,9 @@ def main():
             word = notes[i]["fields"]["Front"]
             translation = notes[i]["fields"]["Back"]
             if res is None:
-                print(f"⚠️ Failed to add: {word}")
+                print(f"Failed to add: {word}")
             else:
-                print(f"✅ Added: {word} → {translation}")
+                print(f"Added: {word} → {translation}")
 
     
     def exit_program():
@@ -135,34 +114,26 @@ def main():
     
     while True:
         print("\n=== Lyrics Flashcard App ===")
-        print("Song")
-        print(" 1. Show song lyrics")
-        print(" 2. Save song lyrics to a file")
-        print(" 3. Generate song flashcards")
-        print("6. Exit\n")
+        print("1. Show song lyrics")
+        print("2. Save song lyrics to a file")
+        print("3. Generate song flashcards")
+        print("4. Exit\n")
     
         choice = input("Choose an option: ").strip()
         action = actions.get(choice)
         if action:
-            if choice == "6":
+            if choice == "4":
                 action()
                 break
             else:
                 action()
         else:
             print('-'*30)
-            print("Invalid option. Please choose 1-5.")
+            print("Invalid option. Please choose 1-4.")
             print('-'*30)
 
 if __name__ == "__main__":
     main()
-
-
-
-#ogarnac zeby dobrze jednak wczytywalo fiszki do anki
-#pounifikowac funkcje
-#dorobic dla albumow
-#dorobic dla artystow
 
 #langdetect
 #basic gui
