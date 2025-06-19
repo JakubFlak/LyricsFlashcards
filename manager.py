@@ -6,20 +6,20 @@ import re
 from lyricsgenius import Genius
 from deep_translator import GoogleTranslator
 import requests
+import customtkinter as ctk
+from tkinter import messagebox
+from tkinter.scrolledtext import ScrolledText
+import sys
 
 def main():
     
-    token = api_key.your_client_access_token
-    genius = Genius(token)
-    
-    artist = "Ed Sheeran"
-    title = "Perfect"
-    
+    genius = Genius(api_key.your_client_access_token)
+
     ## HELPER FUNCTIONS
     
-    def fetch_song_lyrics(artist, title):
+    def fetch_lyrics(artist, title):
         song = genius.search_song(title, artist)
-        return song.lyrics
+        return song.lyrics if song else None
     
     def extract_sectioned_lyrics(lyrics):
         match = re.search(r"\[.*?\]", lyrics)
@@ -32,105 +32,127 @@ def main():
    
    ## CORE FUNCTIONS ## 
    
-    def show_song_lyrics():     
-        raw_lyrics = fetch_song_lyrics(artist, title)
-        sectioned_lyrics = extract_sectioned_lyrics(raw_lyrics)
-        print(f"\n{sectioned_lyrics}")
-        return sectioned_lyrics
-        
-    def save_song_lyrics():
-        raw_lyrics = fetch_song_lyrics(artist, title)
-        sectioned_lyrics = extract_sectioned_lyrics(raw_lyrics)
-        file_name = f"{artist.replace(" ", "_")}-{title.replace(" ", "_")}.txt".lower()      
-        with open(file_name,'w') as f:
-            f.write(sectioned_lyrics)        
-        print(f"File {file_name} created!")  
+    def show_lyrics():     
+        artist = artist_entry.get()
+        title = title_entry.get()
+        lyrics = fetch_lyrics(artist, title)
     
-    def song_words_flashcards():
-        raw_lyrics = fetch_song_lyrics(artist, title)
-        sectioned_lyrics = extract_sectioned_lyrics(raw_lyrics)
-        clean_lyrics = extract_clean_lyrics(sectioned_lyrics)
-        words = re.findall(r"\b\w+\b", clean_lyrics.strip().lower())
-
-        meaningful_words = [word for word in words if word not in stopwords.english]  
-        words_list = list(set(meaningful_words))
-        translated_list = [word.lower() for word in GoogleTranslator(source='en', target='pl').translate_batch(words_list)]
-
+        if lyrics:
+            sectioned = extract_sectioned_lyrics(lyrics)
+            output_box.delete("1.0", "end")
+            output_box.insert("end", sectioned)
+        else:
+            messagebox.showerror("Error", "Lyrics not found.")
+            
+    def save_lyrics():
+        artist = artist_entry.get()
+        title = title_entry.get()
+        lyrics = fetch_lyrics(artist, title)
+    
+        if lyrics:
+            sectioned = extract_sectioned_lyrics(lyrics)
+            file_name = f"{artist.replace(' ', '_')}-{title.replace(' ', '_')}.txt".lower()
+            with open(file_name, 'w', encoding="utf-8") as f:
+                f.write(sectioned)
+            messagebox.showinfo("Saved", f"Lyrics saved to {file_name}")
+        else:
+            messagebox.showerror("Error", "Lyrics not found.")
+    
+    def generate_flashcards():
+        artist = artist_entry.get()
+        title = title_entry.get()
+        lyrics = fetch_lyrics(artist, title)
+    
+        if not lyrics:
+            messagebox.showerror("Error", "Lyrics not found.")
+            return
+    
+        clean = extract_clean_lyrics(extract_sectioned_lyrics(lyrics))
+        words = re.findall(r"\b\w+\b", clean.lower())
+        filtered = [w for w in words if w not in stopwords.english]
+        unique_words = list(set(filtered))
+    
+        try:
+            translated = GoogleTranslator(source="en", target="pl").translate_batch(unique_words)
+        except Exception as e:
+            messagebox.showerror("Translation Error", str(e))
+            return
+    
         deck_name = f"{artist} - {title}"
         requests.post("http://localhost:8765", json={
             "action": "createDeck",
             "version": 6,
             "params": {"deck": deck_name}
         })
-
+    
         notes = []
-        for word, translation in zip(words_list, translated_list):
-            if word != translation:
+        for word, trans in zip(unique_words, translated):
+            if word != trans:
                 notes.append({
-                            "deckName": deck_name,
-                            "modelName": "Basic",
-                            "fields": {
-                                "Front": word,
-                                "Back": translation
-                            },
-                            "options": {
-                                "allowDuplicate": False
-                            },
-                        }
-                    )
-
+                    "deckName": deck_name,
+                    "modelName": "Basic",
+                    "fields": {"Front": word, "Back": trans},
+                    "options": {"allowDuplicate": False}
+                })
+    
         response = requests.post("http://localhost:8765", json={
-        "action": "addNotes",
-        "version": 6,
-        "params": {
-            "notes": notes
-        }
-    })
-
+            "action": "addNotes",
+            "version": 6,
+            "params": {"notes": notes}
+        })
+    
         result = response.json().get("result", [])
-        for i, res in enumerate(result):
-            word = notes[i]["fields"]["Front"]
-            translation = notes[i]["fields"]["Back"]
-            if res is None:
-                print(f"Failed to add: {word}")
-            else:
-                print(f"Added: {word} → {translation}")
+        success = sum(1 for r in result if r is not None)
+        output_box.insert("end", f"🃏 Added {success} flashcards to Anki.\n")
+        output_box.see("end")
 
+    # === GUI Setup === #
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("blue")
     
-    def exit_program():
-        print('-'*30)
-        print("Goodbye!")
-        print('-'*30)
+    app = ctk.CTk()
+    app.title("Lyrics Flashcard App")
+    app.geometry("700x600")
+    
+    # Inputs
+    artist_label = ctk.CTkLabel(app,text = "Artist name")
+    artist_label.grid(row=0, column=0,
+                      padx=20, pady=0)
+    
+    artist_entry = ctk.CTkEntry(app, placeholder_text="")
+    artist_entry.grid(row=0, column=1, columnspan=4,
+                      padx=20, pady=20, sticky="ew")
+    
+    title_label = ctk.CTkLabel(app,text = "Song Title")
+    title_label.grid(row=1, column=0,
+                      padx=20, pady=20, sticky="ew")
+    
+    title_entry = ctk.CTkEntry(app, placeholder_text="")
+    title_entry.grid(row=1, column=1, columnspan=3,
+                      padx=20, pady=20, sticky="ew")
+    
+    # Output box
+    output_box = ctk.CTkTextbox(app, width=300, height=300)
+    output_box.grid(padx=20, pady=20, column=0, columnspan=3, sticky = "nsew")
+    
+    # Buttons
+  #  btn_frame = ctk.CTkFrame(app)
+  #  btn_frame.grid(pady=20)
+    
+  #  ctk.CTkButton(btn_frame, text="🎵 Show Lyrics", command=show_lyrics).grid(row=0, column=0, padx=10)
+  #  ctk.CTkButton(btn_frame, text="💾 Save Lyrics", command=save_lyrics).grid(row=0, column=1, padx=10)
+  #  ctk.CTkButton(btn_frame, text="🃏 Generate Flashcards", command=generate_flashcards).grid(row=0, column=2, padx=10)
     
     
-    
-    actions = {
-        "1": show_song_lyrics,
-        "2": save_song_lyrics,
-        "3": song_words_flashcards,
-        "6": exit_program
-    }
-    
-    
-    while True:
-        print("\n=== Lyrics Flashcard App ===")
-        print("1. Show song lyrics")
-        print("2. Save song lyrics to a file")
-        print("3. Generate song flashcards")
-        print("4. Exit\n")
-    
-        choice = input("Choose an option: ").strip()
-        action = actions.get(choice)
-        if action:
-            if choice == "4":
-                action()
-                break
-            else:
-                action()
-        else:
-            print('-'*30)
-            print("Invalid option. Please choose 1-4.")
-            print('-'*30)
+    def on_closing():
+        print("Closing the app...")
+        app.destroy()  # Properly destroy the GUI window and end the mainloop
+        sys.exit()
+
+    app.protocol("WM_DELETE_WINDOW", on_closing)
+
+    app.mainloop()
+
 
 if __name__ == "__main__":
     main()
