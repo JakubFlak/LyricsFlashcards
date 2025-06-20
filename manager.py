@@ -8,7 +8,6 @@ from deep_translator import GoogleTranslator
 import requests
 import customtkinter as ctk
 from tkinter import messagebox
-from tkinter.scrolledtext import ScrolledText
 import sys
 
 def main():
@@ -33,8 +32,8 @@ def main():
    ## CORE FUNCTIONS ## 
    
     def show_lyrics():     
-        artist = artist_entry.get()
-        title = title_entry.get()
+        artist, title = get_inputs()
+        if not artist: return
         lyrics = fetch_lyrics(artist, title)
     
         if lyrics:
@@ -42,11 +41,13 @@ def main():
             output_box.delete("1.0", "end")
             output_box.insert("end", sectioned)
         else:
-            messagebox.showerror("Error", "Lyrics not found.")
+            output_box.delete("1.0", "end")
+            output_box.insert("end", "Lyrics not found!")
+        
             
     def save_lyrics():
-        artist = artist_entry.get()
-        title = title_entry.get()
+        artist, title = get_inputs()
+        if not artist: return
         lyrics = fetch_lyrics(artist, title)
     
         if lyrics:
@@ -54,17 +55,20 @@ def main():
             file_name = f"{artist.replace(' ', '_')}-{title.replace(' ', '_')}.txt".lower()
             with open(file_name, 'w', encoding="utf-8") as f:
                 f.write(sectioned)
-            messagebox.showinfo("Saved", f"Lyrics saved to {file_name}")
+            output_box.delete("1.0", "end")
+            output_box.insert("end", f"Lyrics saved to {file_name}")
         else:
-            messagebox.showerror("Error", "Lyrics not found.")
+            output_box.delete("1.0", "end")
+            output_box.insert("end", "Lyrics not found!")
     
     def generate_flashcards():
-        artist = artist_entry.get()
-        title = title_entry.get()
+        artist, title = get_inputs()
+        if not artist: return
         lyrics = fetch_lyrics(artist, title)
     
         if not lyrics:
-            messagebox.showerror("Error", "Lyrics not found.")
+            output_box.delete("1.0", "end")
+            output_box.insert("end", "Lyrics not found!")
             return
     
         clean = extract_clean_lyrics(extract_sectioned_lyrics(lyrics))
@@ -106,6 +110,20 @@ def main():
         output_box.insert("end", f"🃏 Added {success} flashcards to Anki.\n")
         output_box.see("end")
 
+    def on_closing():
+        print("Closing the app...")
+        app.destroy()  # Properly destroy the GUI window and end the mainloop
+        sys.exit()
+
+    def get_inputs():
+        artist = artist_entry.get().strip()
+        title = title_entry.get().strip()
+        if not artist or not title:
+            output_box.delete("1.0", "end")
+            output_box.insert("end", "Please enter both artist and song title")
+            return None, None
+        return artist, title
+
     # === GUI Setup === #
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
@@ -115,13 +133,13 @@ def main():
     app.geometry("700x600")
     
     # Inputs
-    artist_label = ctk.CTkLabel(app,text = "Artist name")
+    artist_label = ctk.CTkLabel(app,text = "Artist Name")
     artist_label.grid(row=0, column=0,
                       padx=20, pady=0)
     
     artist_entry = ctk.CTkEntry(app, placeholder_text="")
     artist_entry.grid(row=0, column=1, columnspan=4,
-                      padx=20, pady=20, sticky="ew")
+                      padx=50, pady=20, sticky="ew")
     
     title_label = ctk.CTkLabel(app,text = "Song Title")
     title_label.grid(row=1, column=0,
@@ -129,25 +147,19 @@ def main():
     
     title_entry = ctk.CTkEntry(app, placeholder_text="")
     title_entry.grid(row=1, column=1, columnspan=3,
-                      padx=20, pady=20, sticky="ew")
+                      padx=50, pady=20, sticky="ew")
     
     # Output box
-    output_box = ctk.CTkTextbox(app, width=300, height=300)
-    output_box.grid(padx=20, pady=20, column=0, columnspan=3, sticky = "nsew")
+    output_box = ctk.CTkTextbox(app, width=660, height=300)
+    output_box.grid(padx=20, pady=20,row=2, column=0, columnspan=3, sticky = "nsew")
     
-    # Buttons
-  #  btn_frame = ctk.CTkFrame(app)
-  #  btn_frame.grid(pady=20)
+    ctk.CTkButton(app, text="🎵 Show Lyrics", command=show_lyrics).grid(row=3, column=0, padx=20, pady=10, sticky="ew")
+    ctk.CTkButton(app, text="💾 Save Lyrics", command=save_lyrics).grid(row=3, column=1, padx=20, pady=10, sticky="ew")
+    ctk.CTkButton(app, text="🃏 Generate Flashcards", command=generate_flashcards).grid(row=3, column=2, padx=20, sticky="ew")
     
-  #  ctk.CTkButton(btn_frame, text="🎵 Show Lyrics", command=show_lyrics).grid(row=0, column=0, padx=10)
-  #  ctk.CTkButton(btn_frame, text="💾 Save Lyrics", command=save_lyrics).grid(row=0, column=1, padx=10)
-  #  ctk.CTkButton(btn_frame, text="🃏 Generate Flashcards", command=generate_flashcards).grid(row=0, column=2, padx=10)
+    exiting = ctk.CTkButton(app, text="Exit", command=on_closing)
+    exiting.grid(row=4, column=0, padx=20, pady=20, sticky="ew", columnspan=3)
     
-    
-    def on_closing():
-        print("Closing the app...")
-        app.destroy()  # Properly destroy the GUI window and end the mainloop
-        sys.exit()
 
     app.protocol("WM_DELETE_WINDOW", on_closing)
 
