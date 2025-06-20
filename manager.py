@@ -32,8 +32,9 @@ def main():
    ## CORE FUNCTIONS ## 
    
     def show_lyrics():     
+        output_box.delete("1.0", "end")
+        output_box.insert("end", "Searching for lyrics...")
         artist, title = get_inputs()
-        if not artist: return
         lyrics = fetch_lyrics(artist, title)
     
         if lyrics:
@@ -151,6 +152,8 @@ def main():
     
     # Output box
     output_box = ctk.CTkTextbox(app, width=660, height=300)
+    output_box.insert("end", "Fill the inputs and click one of the buttons!")
+    #output_box.configure(state="disabled")
     output_box.grid(padx=20, pady=20,row=2, column=0, columnspan=3, sticky = "nsew")
     
     ctk.CTkButton(app, text="🎵 Show Lyrics", command=show_lyrics).grid(row=3, column=0, padx=20, pady=10, sticky="ew")
