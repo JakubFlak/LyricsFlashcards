@@ -10,12 +10,13 @@ import customtkinter as ctk
 from tkinter import messagebox
 import sys
 
+
 def main():
     
     genius = Genius(api_key.your_client_access_token)
 
     ## HELPER FUNCTIONS
-    
+
     def fetch_lyrics(artist, title):
         song = genius.search_song(title, artist)
         return song.lyrics if song else None
@@ -31,85 +32,118 @@ def main():
    
    ## CORE FUNCTIONS ## 
    
-    def show_lyrics():     
-        output_box.delete("1.0", "end")
-        output_box.insert("end", "Searching for lyrics...")
+    def show_lyrics():
         artist, title = get_inputs()
+        output_box.delete("1.0", "end")
+        output_box.insert("end", "🔍 Searching for lyrics...")
+        output_box.update_idletasks()
+        
         lyrics = fetch_lyrics(artist, title)
+        output_box.delete("1.0", "end")
     
         if lyrics:
             sectioned = extract_sectioned_lyrics(lyrics)
-            output_box.delete("1.0", "end")
             output_box.insert("end", sectioned)
         else:
-            output_box.delete("1.0", "end")
-            output_box.insert("end", "Lyrics not found!")
+            output_box.insert("end", "❌ Lyrics not found!")
         
             
     def save_lyrics():
         artist, title = get_inputs()
-        if not artist: return
+        output_box.delete("1.0", "end")
+        output_box.insert("end", "🔍 Searching for lyrics...")
+        output_box.update_idletasks()
+        
         lyrics = fetch_lyrics(artist, title)
+        output_box.delete("1.0", "end")
     
         if lyrics:
             sectioned = extract_sectioned_lyrics(lyrics)
             file_name = f"{artist.replace(' ', '_')}-{title.replace(' ', '_')}.txt".lower()
             with open(file_name, 'w', encoding="utf-8") as f:
                 f.write(sectioned)
-            output_box.delete("1.0", "end")
-            output_box.insert("end", f"Lyrics saved to {file_name}")
+            output_box.insert("end", f"💾 Lyrics saved to {file_name}")
         else:
-            output_box.delete("1.0", "end")
-            output_box.insert("end", "Lyrics not found!")
+            output_box.insert("end", "❌ Lyrics not found!")
+    
     
     def generate_flashcards():
         artist, title = get_inputs()
-        if not artist: return
+        output_box.delete("1.0", "end")
+        output_box.insert("end", "🔍 Searching for lyrics...")
+        output_box.update_idletasks()
+        
         lyrics = fetch_lyrics(artist, title)
+        output_box.delete("1.0", "end")
     
-        if not lyrics:
+        if lyrics:
+            sectioned = extract_sectioned_lyrics(lyrics)
+            output_box.insert("end", sectioned)
+            
+            clean = extract_clean_lyrics(extract_sectioned_lyrics(lyrics))
+            words = re.findall(r"\b\w+\b", clean.lower())
+            filtered = [w for w in words if w not in stopwords.english]
+            unique_words = list(set(filtered))
+        
             output_box.delete("1.0", "end")
-            output_box.insert("end", "Lyrics not found!")
-            return
-    
-        clean = extract_clean_lyrics(extract_sectioned_lyrics(lyrics))
-        words = re.findall(r"\b\w+\b", clean.lower())
-        filtered = [w for w in words if w not in stopwords.english]
-        unique_words = list(set(filtered))
-    
-        try:
-            translated = GoogleTranslator(source="en", target="pl").translate_batch(unique_words)
-        except Exception as e:
-            messagebox.showerror("Translation Error", str(e))
-            return
-    
-        deck_name = f"{artist} - {title}"
-        requests.post("http://localhost:8765", json={
-            "action": "createDeck",
-            "version": 6,
-            "params": {"deck": deck_name}
-        })
-    
-        notes = []
-        for word, trans in zip(unique_words, translated):
-            if word != trans:
-                notes.append({
-                    "deckName": deck_name,
-                    "modelName": "Basic",
-                    "fields": {"Front": word, "Back": trans},
-                    "options": {"allowDuplicate": False}
+            output_box.insert("end", "📖 Translating words...")
+            output_box.update_idletasks()
+        
+            try:
+                translated = GoogleTranslator(source="en", target="pl").translate_batch(unique_words)
+            except Exception as e:
+                messagebox.showerror("Translation Error", str(e))
+                return
+        
+            deck_name = f"{artist} - {title}"
+            requests.post("http://localhost:8765", json={
+                "action": "createDeck",
+                "version": 6,
+                "params": {"deck": deck_name}
+            })
+        
+        
+            output_box.delete("1.0", "end")
+            output_box.insert("end", "📚 Adding flashcards...")
+            output_box.update_idletasks()
+        
+            notes = []
+            for word, trans in zip(unique_words, translated):
+                if word != trans:
+                    notes.append({
+                        "deckName": deck_name,
+                        "modelName": "Basic",
+                        "fields": {"Front": word, "Back": trans},
+                        "options": {"allowDuplicate": False}
+                    })
+            print("Flashcards created")
+            
+            try:
+                response = requests.post("http://localhost:8765", json={
+                    "action": "addNotes",
+                    "version": 6,
+                    "params": {"notes": notes}
                 })
+                
+                if "error" in response:
+                    raise Exception(response["error"])
+                
+                print("Flashcards sent")
+                
+                result = response.json().get("result", [])
+                success = sum(1 for r in result if r is not None)
+                output_box.delete("1.0", "end")
+                output_box.insert("end", f"🃏 Added {success} flashcards to Anki.\n")
+                output_box.see("end")
+            except Exception as e:
+                output_box.delete("1.0", "end")
+                output_box.insert("end", f"Failed to add flashcards.\n{e}")
+            
+        else:
+            output_box.insert("end", "❌ Lyrics not found!")
     
-        response = requests.post("http://localhost:8765", json={
-            "action": "addNotes",
-            "version": 6,
-            "params": {"notes": notes}
-        })
-    
-        result = response.json().get("result", [])
-        success = sum(1 for r in result if r is not None)
-        output_box.insert("end", f"🃏 Added {success} flashcards to Anki.\n")
-        output_box.see("end")
+        
+            
 
     def on_closing():
         print("Closing the app...")
@@ -121,8 +155,8 @@ def main():
         title = title_entry.get().strip()
         if not artist or not title:
             output_box.delete("1.0", "end")
-            output_box.insert("end", "Please enter both artist and song title")
-            return None, None
+            output_box.insert("end", "⚠️ Please enter both artist and song title!")
+            return
         return artist, title
 
     # === GUI Setup === #
@@ -152,7 +186,7 @@ def main():
     
     # Output box
     output_box = ctk.CTkTextbox(app, width=660, height=300)
-    output_box.insert("end", "Fill the inputs and click one of the buttons!")
+    output_box.insert("end", "Fill the inputs and click one of the buttons")
     #output_box.configure(state="disabled")
     output_box.grid(padx=20, pady=20,row=2, column=0, columnspan=3, sticky = "nsew")
     
