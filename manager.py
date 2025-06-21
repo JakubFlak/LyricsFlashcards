@@ -1,7 +1,6 @@
 #%% Show song lyrics
 
 import api_key
-import stopwords
 import re
 from lyricsgenius import Genius
 from deep_translator import GoogleTranslator
@@ -9,6 +8,35 @@ import requests
 import customtkinter as ctk
 from tkinter import messagebox
 import sys
+from langdetect import detect
+import nltk
+from nltk.corpus import stopwords as nltk_stopwords
+
+try:
+    stopwords_list = nltk_stopwords.words("english")  # try to access
+except LookupError:
+    nltk.download("stopwords")
+
+
+lang_map = {
+    "Polish": "pl",
+    "English": "en",
+    "Spanish": "es",
+    "French": "fr",
+    "German": "de",
+    "Italian": "it"
+}
+
+reverse_lang_map = {v: k for k, v in lang_map.items()}
+
+
+stopwords_map = {
+    "en": set(nltk_stopwords.words("english")),
+    "es": set(nltk_stopwords.words("spanish")),
+    "fr": set(nltk_stopwords.words("french")),
+    "de": set(nltk_stopwords.words("german")),
+    "it": set(nltk_stopwords.words("italian")),
+}
 
 
 def main():
@@ -46,6 +74,7 @@ def main():
             output_box.insert("end", sectioned)
         else:
             output_box.insert("end", "❌ Lyrics not found!")
+        return sectioned
         
             
     def save_lyrics():
@@ -70,27 +99,33 @@ def main():
     def generate_flashcards():
         artist, title = get_inputs()
         output_box.delete("1.0", "end")
-        output_box.insert("end", "🔍 Searching for lyrics...")
+        output_box.insert("end", "🔍 Searching for lyrics...\n")
         output_box.update_idletasks()
         
         lyrics = fetch_lyrics(artist, title)
-        output_box.delete("1.0", "end")
     
-        if lyrics:
-            sectioned = extract_sectioned_lyrics(lyrics)
-            output_box.insert("end", sectioned)
-            
+        if lyrics:      
             clean = extract_clean_lyrics(extract_sectioned_lyrics(lyrics))
-            words = re.findall(r"\b\w+\b", clean.lower())
-            filtered = [w for w in words if w not in stopwords.english]
-            unique_words = list(set(filtered))
-        
-            output_box.delete("1.0", "end")
-            output_box.insert("end", "📖 Translating words...")
-            output_box.update_idletasks()
-        
+            
             try:
-                translated = GoogleTranslator(source="en", target="pl").translate_batch(unique_words)
+                source_lang = detect(clean)
+            except:
+                source_lang = "auto"
+            
+            words = re.findall(r"\b\w+\b", clean.lower())
+            stopword_list = stopwords_map.get(source_lang, set())
+            filtered = [w for w in words if w not in stopword_list]
+            unique_words = list(set(filtered))
+
+            target_lang_name = lang_var.get()
+            target_lang_code = lang_map.get(target_lang_name, "pl")
+            
+            output_box.insert("end", f"🌍 Detected language: {reverse_lang_map.get(source_lang, source_lang.upper())}\n")
+            output_box.insert("end", f"📖 Translating to: {target_lang_name}...\n")
+            output_box.update_idletasks()
+            
+            try:
+                translated = GoogleTranslator(source=source_lang, target=target_lang_code).translate_batch(unique_words)
             except Exception as e:
                 messagebox.showerror("Translation Error", str(e))
                 return
@@ -102,9 +137,7 @@ def main():
                 "params": {"deck": deck_name}
             })
         
-        
-            output_box.delete("1.0", "end")
-            output_box.insert("end", "📚 Adding flashcards...")
+            output_box.insert("end", "📚 Adding flashcards...\n")
             output_box.update_idletasks()
         
             notes = []
@@ -116,7 +149,6 @@ def main():
                         "fields": {"Front": word, "Back": trans},
                         "options": {"allowDuplicate": False}
                     })
-            print("Flashcards created")
             
             try:
                 response = requests.post("http://localhost:8765", json={
@@ -127,12 +159,9 @@ def main():
                 
                 if "error" in response:
                     raise Exception(response["error"])
-                
-                print("Flashcards sent")
-                
+                                
                 result = response.json().get("result", [])
                 success = sum(1 for r in result if r is not None)
-                output_box.delete("1.0", "end")
                 output_box.insert("end", f"🃏 Added {success} flashcards to Anki.\n")
                 output_box.see("end")
             except Exception as e:
@@ -184,18 +213,28 @@ def main():
     title_entry.grid(row=1, column=1, columnspan=3,
                       padx=50, pady=20, sticky="ew")
     
+    # Language selection
+    lang_label = ctk.CTkLabel(app, text="Target Language")
+    lang_label.grid(row=2, column=0, padx=20, pady=0)
+    
+    lang_options = list(lang_map.keys())
+    lang_var = ctk.StringVar(value="Polish")
+    lang_menu = ctk.CTkOptionMenu(app, variable=lang_var, values=lang_options)
+    lang_menu.grid(row=2, column=1, padx=50, pady=10, sticky="ew")
+    
+    
     # Output box
-    output_box = ctk.CTkTextbox(app, width=660, height=300)
+    output_box = ctk.CTkTextbox(app, width=660, height=250)
     output_box.insert("end", "Fill the inputs and click one of the buttons")
     #output_box.configure(state="disabled")
-    output_box.grid(padx=20, pady=20,row=2, column=0, columnspan=3, sticky = "nsew")
+    output_box.grid(padx=20, pady=20,row=3, column=0, columnspan=3, sticky = "nsew")
     
-    ctk.CTkButton(app, text="🎵 Show Lyrics", command=show_lyrics).grid(row=3, column=0, padx=20, pady=10, sticky="ew")
-    ctk.CTkButton(app, text="💾 Save Lyrics", command=save_lyrics).grid(row=3, column=1, padx=20, pady=10, sticky="ew")
-    ctk.CTkButton(app, text="🃏 Generate Flashcards", command=generate_flashcards).grid(row=3, column=2, padx=20, sticky="ew")
+    ctk.CTkButton(app, text="🎵 Show Lyrics", command=show_lyrics).grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+    ctk.CTkButton(app, text="💾 Save Lyrics", command=save_lyrics).grid(row=4, column=1, padx=20, pady=10, sticky="ew")
+    ctk.CTkButton(app, text="🃏 Generate Flashcards", command=generate_flashcards).grid(row=4, column=2, padx=20, sticky="ew")
     
     exiting = ctk.CTkButton(app, text="Exit", command=on_closing)
-    exiting.grid(row=4, column=0, padx=20, pady=20, sticky="ew", columnspan=3)
+    exiting.grid(row=5, column=0, padx=20, pady=20, sticky="ew", columnspan=3)
     
 
     app.protocol("WM_DELETE_WINDOW", on_closing)
@@ -206,7 +245,6 @@ def main():
 if __name__ == "__main__":
     main()
 
-#langdetect
-#basic gui
-#Flashcard practice GUI using tkinter or streamlit
-#Track known words and skip translating them again
+# jak wyswietlanie i zapisywanie to zeby nie dwa razy to
+# info ze jak taki zestaw jest to override albo ze istnieje
+# 
