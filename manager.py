@@ -11,32 +11,12 @@ import sys
 from langdetect import detect
 import nltk
 from nltk.corpus import stopwords as nltk_stopwords
+import stopwords_module
 
 try:
     stopwords_list = nltk_stopwords.words("english")  # try to access
 except LookupError:
     nltk.download("stopwords")
-
-
-lang_map = {
-    "Polish": "pl",
-    "English": "en",
-    "Spanish": "es",
-    "French": "fr",
-    "German": "de",
-    "Italian": "it"
-}
-
-reverse_lang_map = {v: k for k, v in lang_map.items()}
-
-
-stopwords_map = {
-    "en": set(nltk_stopwords.words("english")),
-    "es": set(nltk_stopwords.words("spanish")),
-    "fr": set(nltk_stopwords.words("french")),
-    "de": set(nltk_stopwords.words("german")),
-    "it": set(nltk_stopwords.words("italian")),
-}
 
 
 def main():
@@ -91,7 +71,7 @@ def main():
             sectioned = last_lyrics["sectioned"]
         else:
             output_box.delete("1.0", "end")
-            output_box.insert("end", "🔍 Searching for lyrics...")
+            output_box.insert("end", "🔍 Searching for lyrics...\n")
             output_box.update_idletasks()
             lyrics = fetch_lyrics(artist, title)
             
@@ -111,14 +91,13 @@ def main():
     
     def generate_flashcards():
         artist, title = get_inputs()
-
         output_box.delete("1.0", "end")
     
         if (last_lyrics["artist"] == artist and last_lyrics["title"] == title):
             sectioned = last_lyrics["sectioned"]
         else:
             output_box.delete("1.0", "end")
-            output_box.insert("end", "🔍 Searching for lyrics...")
+            output_box.insert("end", "🔍 Searching for lyrics...\n")
             output_box.update_idletasks()
             lyrics = fetch_lyrics(artist, title)
             
@@ -135,14 +114,24 @@ def main():
             source_lang = "auto"
         
         words = re.findall(r"\b\w+\b", clean.lower())
-        stopword_list = stopwords_map.get(source_lang, set())
+        stopword_list = stopwords_module.stopwords_map.get(source_lang, set())
         filtered = [w for w in words if w not in stopword_list]
         unique_words = list(set(filtered))
-
-        target_lang_name = lang_var.get()
-        target_lang_code = lang_map.get(target_lang_name, "pl")
         
-        output_box.insert("end", f"🌍 Detected language: {reverse_lang_map.get(source_lang, source_lang.upper())}\n")
+        output_box.insert("end", f"🌍 Detected language: {stopwords_module.reverse_lang_map.get(source_lang, source_lang.upper())}\n")
+        target_lang_name = lang_var.get()
+        target_lang_code = stopwords_module.lang_map.get(target_lang_name, "pl")
+        
+        deck_name = f"{artist} - {title} [{source_lang.upper()} → {target_lang_code.upper()}]"
+        
+        if deck_exists(deck_name):
+            if not confirm_overwrite(deck_name):
+                output_box.insert("end", "⚠️ Deck creation cancelled by user.\n")
+                return
+            delete_deck(deck_name)
+
+        create_deck(deck_name)
+        
         output_box.insert("end", f"📖 Translating to: {target_lang_name}...\n")
         output_box.update_idletasks()
         
@@ -151,44 +140,45 @@ def main():
         except Exception as e:
             messagebox.showerror("Translation Error", str(e))
             return
-    
-        deck_name = f"{artist} - {title} [{source_lang.upper()} → {target_lang_code.upper()}]"
-        requests.post("http://localhost:8765", json={
-            "action": "createDeck",
-            "version": 6,
-            "params": {"deck": deck_name}
-        })
-    
-        output_box.insert("end", "📚 Adding flashcards...\n")
-        output_box.update_idletasks()
-    
-        notes = []
-        for word, trans in zip(unique_words, translated):
-            if word != trans.lower():
-                notes.append({
-                    "deckName": deck_name,
-                    "modelName": "Basic",
-                    "fields": {"Front": word, "Back": trans.lower()},
-                    "options": {"allowDuplicate": False}
-                })
         
-        try:
-            response = requests.post("http://localhost:8765", json={
-                "action": "addNotes",
-                "version": 6,
-                "params": {"notes": notes}
-            })
+        add_flashcards(deck_name, zip(unique_words, translated))
+        
+        # requests.post("http://localhost:8765", json={
+        #     "action": "createDeck",
+        #     "version": 6,
+        #     "params": {"deck": deck_name}
+        # })
+    
+        # output_box.insert("end", "📚 Adding flashcards...\n")
+        # output_box.update_idletasks()
+    
+        # notes = []
+        # for word, trans in zip(unique_words, translated):
+        #     if word != trans.lower():
+        #         notes.append({
+        #             "deckName": deck_name,
+        #             "modelName": "Basic",
+        #             "fields": {"Front": word, "Back": trans.lower()},
+        #             "options": {"allowDuplicate": False}
+        #         })
+        
+        # try:
+        #     response = requests.post("http://localhost:8765", json={
+        #         "action": "addNotes",
+        #         "version": 6,
+        #         "params": {"notes": notes}
+        #     })
             
-            if "error" in response:
-                raise Exception(response["error"])
+        #     if "error" in response:
+        #         raise Exception(response["error"])
                             
-            result = response.json().get("result", [])
-            success = sum(1 for r in result if r is not None)
-            output_box.insert("end", f"🃏 Added {success} flashcards to Anki.\n")
-            output_box.see("end")
-        except Exception as e:
-            output_box.delete("1.0", "end")
-            output_box.insert("end", f"Failed to add flashcards.\n{e}")
+        #     result = response.json().get("result", [])
+        #     success = sum(1 for r in result if r is not None)
+        #     output_box.insert("end", f"🃏 Added {success} flashcards to Anki.\n")
+        #     output_box.see("end")
+        # except Exception as e:
+        #     output_box.delete("1.0", "end")
+        #     output_box.insert("end", f"Failed to add flashcards.\n{e}")
         
 
     def on_closing():
@@ -204,6 +194,61 @@ def main():
             output_box.insert("end", "⚠️ Please enter both artist and song title!")
             return
         return artist, title
+    
+    def deck_exists(deck_name):
+        response = requests.post("http://localhost:8765", json={
+            "action": "deckNames",
+            "version": 6
+        })
+        return deck_name in response.json().get("result", [])
+    
+    def confirm_overwrite(deck_name):
+        return messagebox.askyesno(
+            "Deck Exists",
+            f"The deck '{deck_name}' already exists.\nDo you want to overwrite it?"
+    )
+
+    def delete_deck(deck_name):
+        requests.post("http://localhost:8765", json={
+            "action": "deleteDecks",
+            "version": 6,
+            "params": {"decks": [deck_name], "cardsToo": True}
+        })
+
+
+    def create_deck(deck_name):
+        requests.post("http://localhost:8765", json={
+            "action": "createDeck",
+            "version": 6,
+            "params": {"deck": deck_name}
+        })
+    
+    
+    def add_flashcards(deck_name, word_pairs):
+        
+        output_box.insert("end", "📚 Adding flashcards...\n")
+        output_box.update_idletasks()
+        
+        notes = [{
+            "deckName": deck_name,
+            "modelName": "Basic",
+            "fields": {"Front": w, "Back": t.lower()},
+            "options": {"allowDuplicate": False}
+        } for w, t in word_pairs if w != t.lower()]
+    
+        try:
+            response = requests.post("http://localhost:8765", json={
+                "action": "addNotes",
+                "version": 6,
+                "params": {"notes": notes}
+            })
+            result = response.json().get("result", [])
+            success = sum(1 for r in result if r is not None)
+            output_box.insert("end", f"🃏 Added {success} flashcards to Anki.\n")
+            output_box.see("end")
+        except Exception as e:
+            output_box.insert("end", f"❌ Failed to add flashcards: {e}\n")
+    
 
     # === GUI Setup === #
     ctk.set_appearance_mode("dark")
@@ -234,7 +279,7 @@ def main():
     lang_label = ctk.CTkLabel(app, text="Target Language")
     lang_label.grid(row=2, column=0, padx=20, pady=0)
     
-    lang_options = list(lang_map.keys())
+    lang_options = list(stopwords_module.lang_map.keys())
     lang_var = ctk.StringVar(value="Polish")
     lang_menu = ctk.CTkOptionMenu(app, variable=lang_var, values=lang_options)
     lang_menu.grid(row=2, column=1, padx=50, pady=10, sticky="ew")
