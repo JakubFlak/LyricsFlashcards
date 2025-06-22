@@ -119,6 +119,7 @@ def main():
         unique_words = list(set(filtered))
         
         output_box.insert("end", f"🌍 Detected language: {stopwords_module.reverse_lang_map.get(source_lang, source_lang.upper())}\n")
+        output_box.update_idletasks()
         target_lang_name = lang_var.get()
         target_lang_code = stopwords_module.lang_map.get(target_lang_name, "pl")
         
@@ -142,44 +143,6 @@ def main():
             return
         
         add_flashcards(deck_name, zip(unique_words, translated))
-        
-        # requests.post("http://localhost:8765", json={
-        #     "action": "createDeck",
-        #     "version": 6,
-        #     "params": {"deck": deck_name}
-        # })
-    
-        # output_box.insert("end", "📚 Adding flashcards...\n")
-        # output_box.update_idletasks()
-    
-        # notes = []
-        # for word, trans in zip(unique_words, translated):
-        #     if word != trans.lower():
-        #         notes.append({
-        #             "deckName": deck_name,
-        #             "modelName": "Basic",
-        #             "fields": {"Front": word, "Back": trans.lower()},
-        #             "options": {"allowDuplicate": False}
-        #         })
-        
-        # try:
-        #     response = requests.post("http://localhost:8765", json={
-        #         "action": "addNotes",
-        #         "version": 6,
-        #         "params": {"notes": notes}
-        #     })
-            
-        #     if "error" in response:
-        #         raise Exception(response["error"])
-                            
-        #     result = response.json().get("result", [])
-        #     success = sum(1 for r in result if r is not None)
-        #     output_box.insert("end", f"🃏 Added {success} flashcards to Anki.\n")
-        #     output_box.see("end")
-        # except Exception as e:
-        #     output_box.delete("1.0", "end")
-        #     output_box.insert("end", f"Failed to add flashcards.\n{e}")
-        
 
     def on_closing():
         print("Closing the app...")
@@ -306,6 +269,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# info ze jak taki zestaw jest to override albo ze istnieje
-# 
