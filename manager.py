@@ -43,6 +43,9 @@ def main():
     
     genius = Genius(api_key.your_client_access_token)
 
+    last_lyrics = {"artist": "", "title": "", "sectioned": ""}
+
+
     ## HELPER FUNCTIONS
 
     def fetch_lyrics(artist, title):
@@ -71,41 +74,60 @@ def main():
     
         if lyrics:
             sectioned = extract_sectioned_lyrics(lyrics)
+            last_lyrics["artist"] = artist
+            last_lyrics["title"] = title
+            last_lyrics["sectioned"] = sectioned
             output_box.insert("end", sectioned)
         else:
             output_box.insert("end", "❌ Lyrics not found!")
-        return sectioned
         
             
     def save_lyrics():
         artist, title = get_inputs()
-        output_box.delete("1.0", "end")
-        output_box.insert("end", "🔍 Searching for lyrics...")
-        output_box.update_idletasks()
-        
-        lyrics = fetch_lyrics(artist, title)
+
         output_box.delete("1.0", "end")
     
-        if lyrics:
-            sectioned = extract_sectioned_lyrics(lyrics)
-            file_name = f"{artist.replace(' ', '_')}-{title.replace(' ', '_')}.txt".lower()
-            with open(file_name, 'w', encoding="utf-8") as f:
-                f.write(sectioned)
-            output_box.insert("end", f"💾 Lyrics saved to {file_name}")
+        if (last_lyrics["artist"] == artist and last_lyrics["title"] == title):
+            sectioned = last_lyrics["sectioned"]
         else:
-            output_box.insert("end", "❌ Lyrics not found!")
+            output_box.delete("1.0", "end")
+            output_box.insert("end", "🔍 Searching for lyrics...")
+            output_box.update_idletasks()
+            lyrics = fetch_lyrics(artist, title)
+            
+            if not lyrics:
+                output_box.delete("1.0", "end")
+                output_box.insert("end", "❌ Lyrics not found!")
+                return
+            sectioned = extract_sectioned_lyrics(lyrics)
     
+        filename = f"{artist.replace(' ', '_')}-{title.replace(' ', '_')}.txt".lower()
+        with open(filename, 'w', encoding="utf-8") as f:
+            f.write(sectioned)
+    
+        output_box.delete("1.0", "end")
+        output_box.insert("end", f"💾 Lyrics saved to `{filename}`")
+   
     
     def generate_flashcards():
         artist, title = get_inputs()
+
         output_box.delete("1.0", "end")
-        output_box.insert("end", "🔍 Searching for lyrics...\n")
-        output_box.update_idletasks()
-        
-        lyrics = fetch_lyrics(artist, title)
     
-        if lyrics:      
-            clean = extract_clean_lyrics(extract_sectioned_lyrics(lyrics))
+        if (last_lyrics["artist"] == artist and last_lyrics["title"] == title):
+            sectioned = last_lyrics["sectioned"]
+        else:
+            output_box.delete("1.0", "end")
+            output_box.insert("end", "🔍 Searching for lyrics...")
+            output_box.update_idletasks()
+            lyrics = fetch_lyrics(artist, title)
+            
+            if not lyrics:
+                output_box.delete("1.0", "end")
+                output_box.insert("end", "❌ Lyrics not found!")
+                return
+            sectioned = extract_sectioned_lyrics(lyrics)     
+            clean = extract_clean_lyrics(sectioned)
             
             try:
                 source_lang = detect(clean)
@@ -120,7 +142,7 @@ def main():
             target_lang_name = lang_var.get()
             target_lang_code = lang_map.get(target_lang_name, "pl")
             
-            output_box.insert("end", f"🌍 Detected language: {reverse_lang_map.get(source_lang, source_lang.upper())}\n")
+            output_box.insert("end", f"\n🌍 Detected language: {reverse_lang_map.get(source_lang, source_lang.upper())}\n")
             output_box.insert("end", f"📖 Translating to: {target_lang_name}...\n")
             output_box.update_idletasks()
             
@@ -130,7 +152,7 @@ def main():
                 messagebox.showerror("Translation Error", str(e))
                 return
         
-            deck_name = f"{artist} - {title}"
+            deck_name = f"{artist} - {title} [{source_lang.upper()} → {target_lang_code.upper()}]"
             requests.post("http://localhost:8765", json={
                 "action": "createDeck",
                 "version": 6,
@@ -167,11 +189,6 @@ def main():
             except Exception as e:
                 output_box.delete("1.0", "end")
                 output_box.insert("end", f"Failed to add flashcards.\n{e}")
-            
-        else:
-            output_box.insert("end", "❌ Lyrics not found!")
-    
-        
             
 
     def on_closing():
@@ -245,6 +262,5 @@ def main():
 if __name__ == "__main__":
     main()
 
-# jak wyswietlanie i zapisywanie to zeby nie dwa razy to
 # info ze jak taki zestaw jest to override albo ze istnieje
 # 
