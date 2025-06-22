@@ -127,69 +127,69 @@ def main():
                 output_box.insert("end", "❌ Lyrics not found!")
                 return
             sectioned = extract_sectioned_lyrics(lyrics)     
-            clean = extract_clean_lyrics(sectioned)
-            
-            try:
-                source_lang = detect(clean)
-            except:
-                source_lang = "auto"
-            
-            words = re.findall(r"\b\w+\b", clean.lower())
-            stopword_list = stopwords_map.get(source_lang, set())
-            filtered = [w for w in words if w not in stopword_list]
-            unique_words = list(set(filtered))
+        clean = extract_clean_lyrics(sectioned)
+        
+        try:
+            source_lang = detect(clean)
+        except:
+            source_lang = "auto"
+        
+        words = re.findall(r"\b\w+\b", clean.lower())
+        stopword_list = stopwords_map.get(source_lang, set())
+        filtered = [w for w in words if w not in stopword_list]
+        unique_words = list(set(filtered))
 
-            target_lang_name = lang_var.get()
-            target_lang_code = lang_map.get(target_lang_name, "pl")
-            
-            output_box.insert("end", f"\n🌍 Detected language: {reverse_lang_map.get(source_lang, source_lang.upper())}\n")
-            output_box.insert("end", f"📖 Translating to: {target_lang_name}...\n")
-            output_box.update_idletasks()
-            
-            try:
-                translated = GoogleTranslator(source=source_lang, target=target_lang_code).translate_batch(unique_words)
-            except Exception as e:
-                messagebox.showerror("Translation Error", str(e))
-                return
+        target_lang_name = lang_var.get()
+        target_lang_code = lang_map.get(target_lang_name, "pl")
         
-            deck_name = f"{artist} - {title} [{source_lang.upper()} → {target_lang_code.upper()}]"
-            requests.post("http://localhost:8765", json={
-                "action": "createDeck",
-                "version": 6,
-                "params": {"deck": deck_name}
-            })
+        output_box.insert("end", f"🌍 Detected language: {reverse_lang_map.get(source_lang, source_lang.upper())}\n")
+        output_box.insert("end", f"📖 Translating to: {target_lang_name}...\n")
+        output_box.update_idletasks()
         
-            output_box.insert("end", "📚 Adding flashcards...\n")
-            output_box.update_idletasks()
-        
-            notes = []
-            for word, trans in zip(unique_words, translated):
-                if word != trans:
-                    notes.append({
-                        "deckName": deck_name,
-                        "modelName": "Basic",
-                        "fields": {"Front": word, "Back": trans},
-                        "options": {"allowDuplicate": False}
-                    })
-            
-            try:
-                response = requests.post("http://localhost:8765", json={
-                    "action": "addNotes",
-                    "version": 6,
-                    "params": {"notes": notes}
+        try:
+            translated = GoogleTranslator(source=source_lang, target=target_lang_code).translate_batch(unique_words)
+        except Exception as e:
+            messagebox.showerror("Translation Error", str(e))
+            return
+    
+        deck_name = f"{artist} - {title} [{source_lang.upper()} → {target_lang_code.upper()}]"
+        requests.post("http://localhost:8765", json={
+            "action": "createDeck",
+            "version": 6,
+            "params": {"deck": deck_name}
+        })
+    
+        output_box.insert("end", "📚 Adding flashcards...\n")
+        output_box.update_idletasks()
+    
+        notes = []
+        for word, trans in zip(unique_words, translated):
+            if word != trans.lower():
+                notes.append({
+                    "deckName": deck_name,
+                    "modelName": "Basic",
+                    "fields": {"Front": word, "Back": trans.lower()},
+                    "options": {"allowDuplicate": False}
                 })
-                
-                if "error" in response:
-                    raise Exception(response["error"])
-                                
-                result = response.json().get("result", [])
-                success = sum(1 for r in result if r is not None)
-                output_box.insert("end", f"🃏 Added {success} flashcards to Anki.\n")
-                output_box.see("end")
-            except Exception as e:
-                output_box.delete("1.0", "end")
-                output_box.insert("end", f"Failed to add flashcards.\n{e}")
+        
+        try:
+            response = requests.post("http://localhost:8765", json={
+                "action": "addNotes",
+                "version": 6,
+                "params": {"notes": notes}
+            })
             
+            if "error" in response:
+                raise Exception(response["error"])
+                            
+            result = response.json().get("result", [])
+            success = sum(1 for r in result if r is not None)
+            output_box.insert("end", f"🃏 Added {success} flashcards to Anki.\n")
+            output_box.see("end")
+        except Exception as e:
+            output_box.delete("1.0", "end")
+            output_box.insert("end", f"Failed to add flashcards.\n{e}")
+        
 
     def on_closing():
         print("Closing the app...")
