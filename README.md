@@ -15,7 +15,7 @@ A GUI tool that fetches lyrics using the Genius API, saves lyrics, translates vo
 
 ## 📸 Screenshot
 
-![screenshot](https://github.com/user-attachments/assets/391d6b5e-51db-4aa2-84c4-da84bd2c77c9)
+![screenshot](images/screenshot.png)
 
 ## 📦 Prerequisites
 
@@ -67,8 +67,6 @@ Then:
   * 🃏 Generate Flashcards
 
 Flashcards are added directly to your Anki desktop app!
-
----
 
 ## 🗂 File Structure
 
