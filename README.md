@@ -16,7 +16,7 @@ A GUI tool that fetches lyrics using the Genius API, saves lyrics, translates vo
 ## 📸 Screenshot
 
 ```
-![Lyrics Flashcard App](images/screenshot.png)
+![screenshot](images/screenshot.png)
 ```
 
 ## 📦 Prerequisites
@@ -27,14 +27,13 @@ A GUI tool that fetches lyrics using the Genius API, saves lyrics, translates vo
   → Get one by creating a free account and registering an app at: https://genius.com/api-clients
 - Required Python libraries (see below)
 
----
 
 ## 🛠️ Installation & Setup
 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/JakubFlakername/LyricsFlashcards.git
+git clone https://github.com/JakubFlak/LyricsFlashcards.git
 cd LyricsFlashcards
 ````
 
