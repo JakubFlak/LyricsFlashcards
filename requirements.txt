@@ -1,0 +1,6 @@
+lyricsgenius
+deep-translator
+langdetect
+customtkinter
+nltk
+requests
