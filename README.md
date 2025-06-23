@@ -16,7 +16,8 @@ A GUI tool that fetches lyrics using the Genius API, saves lyrics, translates vo
 ## 📸 Screenshot
 
 ```
-![screenshot](images/screenshot.png)
+![screenshot](https://github.com/user-attachments/assets/391d6b5e-51db-4aa2-84c4-da84bd2c77c9)
+
 ```
 
 ## 📦 Prerequisites
